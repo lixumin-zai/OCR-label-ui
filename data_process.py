@@ -3,7 +3,7 @@ from exception import UserAlreadyExistsError
 import uuid
 from datetime import datetime
 
-class Database:
+class XizhiOCRDataset:
     def __init__(self, db_name):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
@@ -13,17 +13,18 @@ class Database:
         self.cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
-            image TEXT NOT NULL UNIQUE,
-            status 
-            origin_text TEXT NOT NULL UNIQUE,
-            change_text INTEGER NOT NULL DEFAULT 15,
-            update_time DATETIME DEFAULT CURRENT_TIMESTAMP
-            bbox
+            image_name TEXT NOT NULL UNIQE
+            image BLOB NOT NULL,
+            status BOOLEAN DEFAULT 0,
+            origin_text TEXT,
+            change_text TEXT,
+            text_bbox TEXT,
+            update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
         ''')
         self.conn.commit()
 
-    def create_user(self, wechat_id, verification_code):
+    def insert_data(self, image_name, image, origin_text="", text_bbox=""):
         self.cursor.execute('SELECT * FROM users WHERE wechat_id = ? OR verification_code = ?', 
                         (wechat_id, verification_code))
         if self.cursor.fetchone() is not None:

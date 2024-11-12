@@ -71,7 +71,7 @@ if False:
 else:
     if 'data_df' not in st.session_state:
         st.session_state.data_df = pd.DataFrame(
-            [[str(i), False, [image_path2base64_image("/home/lixumin/project/local_match/attn-head1.png"), image_path2base64_image("/home/lixumin/project/xizhi-ocr/1.jpg")][i%2], f"sdafadsfasdf{i}"] for i in range(100)], 
+            [[str(i), False, [image_path2base64_image("/home/lixumin/project/local_dinov2/local_match/1.jpg"), image_path2base64_image("/home/lixumin/project/xizhi-ocr/1.jpg")][i%2], f"sdafadsfasdf{i}"] for i in range(100)], 
             columns=["id", "status", "image", "text"]
         )
         st.session_state.data_df = st.session_state.data_df.sort_values(by=['status', 'id'])

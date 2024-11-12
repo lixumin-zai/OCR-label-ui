@@ -106,7 +106,7 @@ function addText(start_text, end_text) {
     // 更新 textarea 的内容
     // textarea.value = newText;
     // textarea.setRangeText(newText);
-    textarea.setRangeText(newText.slice(start, end + start_text.length + end_text.length), start, end, 'end');
+    textarea.setRangeText(start_text + choose_text.slice(start, end) + end_text, start, end);
     
     // 恢复选中区域
     textarea.setSelectionRange(start + start_text.length, end + start_text.length);
@@ -118,21 +118,21 @@ function addText(start_text, end_text) {
     textarea.focus();
 
     // 手动触发 input 事件
-    const inputEvent = new Event('input', {
-        'bubbles': true,
-        'cancelable': true
-    });
-    textarea.dispatchEvent(inputEvent);
+    // const inputEvent = new Event('input', {
+    //     'bubbles': true,
+    //     'cancelable': true
+    // });
+    // textarea.dispatchEvent(inputEvent);
+    setTimeout(() => {
+        const event = new Event('input', { bubbles: true, cancelable: true });
+        textarea.dispatchEvent(event);
+    }, 0);
 }
 
 function onRender(event) {
     if (!window.rendered) {
         
         // const text = "$\\textcolor{red}{{你好，(-1,-\\dfrac{\\sqrt{3}}{3})\\cup(\\dfrac{\\sqrt{3}}{3},1)}}$ \\sout{nihao}"
-        // 初始化操作堆栈
-        const undoStack = [];
-        const redoStack = [];
-
         let script = document.createElement('script');
         const textarea = document.getElementById('input_text');
         const mainElement = document.getElementById('main');
@@ -142,6 +142,7 @@ function onRender(event) {
         script.src = "https://cdn.jsdelivr.net/npm/mathpix-markdown-it@2.0.4/es5/bundle.js";
         document.head.append(script);
 
+        // 首次渲染
         script.onload = function() {
             const isLoaded = window.loadMathJax();
             if (isLoaded) {
@@ -178,51 +179,17 @@ function onRender(event) {
             }
         });
 
-        // 定义撤销操作函数
-        function undo() {
-            if (undoStack.length > 1) {      
-                // 弹出最近的操作并将其添加到重做堆栈中
-                const lastValue = undoStack.pop();
-                redoStack.push(lastValue);
-                // 将Textarea的值设置为堆栈中的最后一个值
-                textarea.value = undoStack[undoStack.length - 1];
-                // 手动触发 input 事件
-                const inputEvent = new Event('input', {
-                    'bubbles': true,
-                    'cancelable': true
-                });
-                textarea.dispatchEvent(inputEvent);
-            }
-        }
-
-        // 定义重做操作函数
-        function redo() {
-            if (redoStack.length > 0) {
-                // 将最近的操作从重做堆栈中弹出并将其添加到撤销堆栈中
-                const lastValue = redoStack.pop();
-                undoStack.push(lastValue);
-                // 将Textarea的值设置为堆栈中的最后一个值
-                textarea.value = redoStack[redoStack.length - 1];
-                // 手动触发 input 事件
-                const inputEvent = new Event('input', {
-                    'bubbles': true,
-                    'cancelable': true
-                });
-                textarea.dispatchEvent(inputEvent);
-            }   
-        }
-        
         // 监听键盘事件以实现撤销和重做
-        textarea.addEventListener("keydown", (event) => {
-            // 检查 Ctrl+Z (撤销) 和 Ctrl+Y 或 Ctrl+Shift+Z (重做)
-            if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
-                event.preventDefault();
-                undo();
-            } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z') {
-                event.preventDefault();
-                redo();
-            }
-        });
+        // textarea.addEventListener("keydown", (event) => {
+        //     // 检查 Ctrl+Z (撤销) 和 Ctrl+Y 或 Ctrl+Shift+Z (重做)
+        //     if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+        //         event.preventDefault();
+        //         undo();
+        //     } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z') {
+        //         event.preventDefault();
+        //         redo();
+        //     }
+        // });
 
         // 点击其他地方时隐藏菜单
         document.addEventListener("click", (event) => {
@@ -231,12 +198,8 @@ function onRender(event) {
             }
         });
 
+        // input 修改后进行渲染
         textarea.addEventListener('input', function() {
-            // // 将新的文本内容添加到撤销堆栈中
-            // undoStack.push(textarea.value);
-            // // 清空重做堆栈
-            // redoStack.length = 0;
-
             const modifiedText = textarea.value;  
             const options = {
                 htmlTags: true
