@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Image Display</title>
+</head>
+<body>
+    <button id="drawRectBtn" style="background-color: lightcoral;">绘制矩形框</button>
+    <canvas id="myCanvas" width="500" height="500" style="border: 2px solid black;"></canvas>
+
+    <script>
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d");
+
+        var img = new Image();
+        var imgScale = 1;  // 初始缩放比例
+        var imgOffsetX = 0, imgOffsetY = 0;  // 图片的偏移量
+
+        var moveStartX, moveStartY;  // 鼠标相较于图片左上角的偏移量
+        var mouseX, mouseY; // 鼠标点击后的位置
+
+        var imgIsDragging = false;
+        var drawingRect = false;  // 是否正在绘制矩形
+        var rectangles = []; // 存储多个矩形
+
+        // 设置图片源路径
+        img.src = "1.jpeg";  // 替换为实际图片路径
+
+        // 图片加载完成后绘制图片
+        img.onload = function() {
+            var imgWidth = img.width;
+            var imgHeight = img.height;
+
+            var newWidth = imgWidth * imgScale;
+            var newHeight = imgHeight * imgScale;
+
+            // 清空画布并重新绘制图片
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, imgOffsetX, imgOffsetY, newWidth, newHeight);  // 图片左上角的偏移量+图片宽高
+
+            // 绘制红点标记原点位置 (这里是左上角(0,0)，如果想要其他位置，修改偏移量)
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, 2 * Math.PI);  // 圆心为原点位置，半径为5
+            ctx.fillStyle = "red";  // 红色
+            ctx.fill();
+
+            rectangles.forEach(function(rect) {
+                ctx.beginPath();
+                ctx.rect(rect.x, rect.y, rect.width, rect.height);
+                ctx.strokeStyle = "red";  // 矩形的颜色
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // 如果正在绘制矩形，则绘制矩形
+            if (drawingRect) {
+                ctx.beginPath();
+                ctx.rect(rectStartX, rectStartY, rectWidth, rectHeight);  // 绘制当前矩形
+                ctx.strokeStyle = "red";  // 矩形的颜色
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        };
+
+        // 鼠标滚轮缩放，基于当前鼠标位置
+        canvas.addEventListener('wheel', function(event) {
+            event.preventDefault();
+
+            var imgWidth = img.width;
+            var imgHeight = img.height;
+
+            // 计算图片缩放后的新宽高
+            var newWidth = imgWidth * imgScale;
+            var newHeight = imgHeight * imgScale;
+
+            // 计算鼠标相对于当前图片的偏移量
+            var mouseXRelative = imgOffsetX - mouseX;  // 斜率
+            var mouseYRelative = imgOffsetY - mouseY;
+            console.log(mouseX, mouseY)
+            console.log(imgOffsetX, imgOffsetY)
+            // 缩放比例的变化
+            if (event.deltaY < 0) {
+                imgScale *= 1.02;  // 放大
+            } else {
+                imgScale *= 0.98;  // 缩小
+            }
+            // 计算新的偏移量，保持鼠标所在的相对位置
+
+            console.log(mouseYRelative/mouseXRelative * imgOffsetX - imgOffsetY)
+            // imgOffsetX = mouseX - mouseYRelative/mouseXRelative * imgScale * imgOffsetX;
+            // imgOffsetY = mouseY - mouseYRelative/mouseXRelative * imgScale * imgOffsetY;
+
+            // 重新绘制图片
+            img.onload();
+        });
+
+        // 鼠标按下，开始拖拽
+        canvas.addEventListener('mousedown', function(event) {
+            if (drawingRect) {
+                // 记录矩形的起始位置
+                rectStartX = event.offsetX;
+                rectStartY = event.offsetY;
+                rectWidth = 0;
+                rectHeight = 0;
+            } else {
+                moveStartX = event.offsetX - imgOffsetX;
+                moveStartY = event.offsetY - imgOffsetY;
+                imgIsDragging = true;
+            }
+        });
+
+        // 鼠标移动，拖拽图片
+        canvas.addEventListener('mousemove', function(event) {
+            if (drawingRect) {
+                // 计算矩形的宽度和高度
+                rectWidth = event.offsetX - rectStartX;
+                rectHeight = event.offsetY - rectStartY;
+                img.onload();  // 重新绘制图片和矩形
+            } else if (imgIsDragging) {
+                imgOffsetX = event.offsetX - moveStartX;
+                imgOffsetY = event.offsetY - moveStartY;
+                img.onload();  // 重新绘制图片
+            }
+            mouseX = event.offsetX
+            mouseY = event.offsetY
+        });
+
+        // 鼠标松开，结束拖拽
+        canvas.addEventListener('mouseup', function(event) {
+            if (drawingRect) {
+                // 将当前矩形添加到矩形数组中
+                rectangles.push({x: rectStartX, y: rectStartY, width: rectWidth, height: rectHeight});
+                // 重新绘制图片和矩形
+                img.onload();  
+            }
+            drawingRect = false;
+            imgIsDragging = false;
+        });
+
+        // 鼠标离开画布，结束拖拽
+        canvas.addEventListener('mouseleave', function() {
+            if (drawingRect) {
+                img.onload();
+            }
+            imgIsDragging = false;
+        });
+
+        // 点击按钮时开始或停止绘制矩形，并切换按钮颜色
+        document.getElementById("drawRectBtn").addEventListener('click', function() {
+            drawingRect = !drawingRect;  // 切换矩形绘制状态
+
+            // 切换按钮背景颜色
+            if (drawingRect) {
+                this.style.backgroundColor = "red";  // 改为红色
+            } else {
+                this.style.backgroundColor = "lightcoral";  // 改为浅红色
+            }
+
+            img.onload();  // 重新绘制图片和矩形
+        });
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

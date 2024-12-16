@@ -20,7 +20,11 @@
         .textarea-container {
             position: relative; /* 设置相对定位，以便按钮能定位到右下角 */
         }
-
+        
+        @font-face {
+            font-family: 'LocalKaiTi';
+            src: url('/home/lixumin/project/pre-ocr/get_question_image/fonts/AaCaiYuanGunGunKeAiTi-2.ttf');
+        }
         /* 输入框样式 */
         #input_text {
             padding: 10px 15px; /* 内边距 */
@@ -77,6 +81,9 @@
             height: 90vh;
             overflow-x: auto; /* 启用水平滚动条 */
             overflow-y: auto; /* 垂直滚动条 */
+            font-family: 'LocalKaiTi'; /* 设置字体为楷体 */
+            line-height: 1.6; /* 设置行高，1.6是一个常用值，也可根据需要调整 */
+            letter-spacing: 0.1em; /* 设置字母间距，0.05em是一个合适的起始值 */
         }
 
         /* 容器样式 */
