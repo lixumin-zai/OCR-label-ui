@@ -72,7 +72,7 @@ if False:
 else:
     if 'data_df' not in st.session_state:
         st.session_state.data_df = pd.DataFrame(
-            [[str(i), False, [image_path2base64_image("/home/lixumin/project/local_dinov2/local_match/1.jpg"), image_path2base64_image("/home/lixumin/project/xizhi-ocr/1.jpg")][i%2], f"sdafadsfasdf{i}"] for i in range(1)], 
+            [[str(i), False, [image_path2base64_image("/Users/lixumin/Desktop/work/project/OCR-label-ui/streamlit_image_label/frontend/1.jpeg"), image_path2base64_image("/Users/lixumin/Desktop/work/project/OCR-label-ui/streamlit_image_label/frontend/1.jpeg")][i%2], f"sdafadsfasdf{i}"] for i in range(1)], 
             columns=["id", "status", "image", "text"]
         )
         st.session_state.data_df = st.session_state.data_df.sort_values(by=['status', 'id'])
@@ -186,4 +186,4 @@ else:
         st.session_state.choose_id = None
         st.rerun()
 
-image_label("")
+image_label(st.session_state.current_row['image'])

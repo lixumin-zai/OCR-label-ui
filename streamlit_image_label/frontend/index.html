@@ -3,161 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Image Display</title>
+    <title>图片标注工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #drawRectBtn {
+            background-color: lightcoral;
+        }
+        #saveBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #clearBtn {
+            background-color: #f44336;
+            color: white;
+        }
+        canvas {
+            border: 2px solid #333;
+            cursor: grab;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
 </head>
 <body>
-    <button id="drawRectBtn" style="background-color: lightcoral;">绘制矩形框</button>
-    <canvas id="myCanvas" width="500" height="500" style="border: 2px solid black;"></canvas>
+    <div class="container">
+        <div class="toolbar">
+            <button id="drawRectBtn">绘制矩形框</button>
+            <button id="saveBtn">保存标注</button>
+            <button id="clearBtn">清除所有标注</button>
+        </div>
+        <canvas id="myCanvas" width="800" height="600"></canvas>
+        <div class="status">
+            <p>操作说明: 拖拽移动图片，滚轮缩放图片，点击"绘制矩形框"按钮后可绘制标注框</p>
+            <p id="statusText">状态: 准备就绪</p>
+        </div>
+    </div>
 
     <script>
-        var canvas = document.getElementById("myCanvas");
-        var ctx = canvas.getContext("2d");
+        // 获取DOM元素
+        const canvas = document.getElementById("myCanvas");
+        const ctx = canvas.getContext("2d");
+        const drawRectBtn = document.getElementById("drawRectBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const statusText = document.getElementById("statusText");
 
-        var img = new Image();
-        var imgScale = 1;  // 初始缩放比例
-        var imgOffsetX = 0, imgOffsetY = 0;  // 图片的偏移量
+        // 图片和交互状态变量
+        let img = new Image();
+        let imgScale = 1;  // 初始缩放比例
+        let imgOffsetX = 0, imgOffsetY = 0;  // 图片的偏移量
+        let imgOriginalWidth, imgOriginalHeight;
 
-        var moveStartX, moveStartY;  // 鼠标相较于图片左上角的偏移量
-        var mouseX, mouseY; // 鼠标点击后的位置
+        // 鼠标交互变量
+        let moveStartX, moveStartY;  // 拖拽起始点
+        let mouseX, mouseY;  // 当前鼠标位置
+        let rectStartX, rectStartY, rectWidth, rectHeight;  // 矩形绘制参数
 
-        var imgIsDragging = false;
-        var drawingRect = false;  // 是否正在绘制矩形
-        var rectangles = []; // 存储多个矩形
+        // 状态标志
+        let imgIsDragging = false;  // 是否正在拖拽图片
+        let drawingRect = false;    // 是否处于绘制矩形模式
+        let isDrawingNow = false;   // 是否正在绘制矩形
+        let rectangles = [];        // 存储已绘制的矩形
 
-        // 设置图片源路径
-        img.src = "1.jpeg";  // 替换为实际图片路径
+        // 从Streamlit接收图片数据
+        function loadImageFromStreamlit(imageBase64) {
+            
+            if (!imageBase64) return;
+            img.onload = function() {
+                imgOriginalWidth = img.width;
+                imgOriginalHeight = img.height;
+                
+                // 调整初始位置使图片居中
+                imgOffsetX = (canvas.width - imgOriginalWidth) / 2;
+                imgOffsetY = (canvas.height - imgOriginalHeight) / 2;
+                
+                redrawCanvas();
+                statusText.textContent = "状态: 图片加载完成";
+            };
+            
+            img.src = imageBase64;
+        }
 
-        // 图片加载完成后绘制图片
-        img.onload = function() {
-            var imgWidth = img.width;
-            var imgHeight = img.height;
-
-            var newWidth = imgWidth * imgScale;
-            var newHeight = imgHeight * imgScale;
-
-            // 清空画布并重新绘制图片
+        // 重绘整个画布
+        function redrawCanvas() {
+            // 清空画布
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, imgOffsetX, imgOffsetY, newWidth, newHeight);  // 图片左上角的偏移量+图片宽高
-
-            // 绘制红点标记原点位置 (这里是左上角(0,0)，如果想要其他位置，修改偏移量)
-            ctx.beginPath();
-            ctx.arc(0, 0, 5, 0, 2 * Math.PI);  // 圆心为原点位置，半径为5
-            ctx.fillStyle = "red";  // 红色
-            ctx.fill();
-
+            
+            // 计算图片缩放后的尺寸
+            const newWidth = imgOriginalWidth * imgScale;
+            const newHeight = imgOriginalHeight * imgScale;
+            
+            // 绘制图片
+            ctx.drawImage(img, imgOffsetX, imgOffsetY, newWidth, newHeight);
+            
+            // 绘制已保存的矩形
             rectangles.forEach(function(rect) {
-                ctx.beginPath();
-                ctx.rect(rect.x, rect.y, rect.width, rect.height);
-                ctx.strokeStyle = "red";  // 矩形的颜色
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                drawRectangle(rect.x, rect.y, rect.width, rect.height, "red");
             });
-
-            // 如果正在绘制矩形，则绘制矩形
-            if (drawingRect) {
-                ctx.beginPath();
-                ctx.rect(rectStartX, rectStartY, rectWidth, rectHeight);  // 绘制当前矩形
-                ctx.strokeStyle = "red";  // 矩形的颜色
-                ctx.lineWidth = 2;
-                ctx.stroke();
+            
+            // 如果正在绘制矩形，绘制当前矩形
+            if (isDrawingNow) {
+                drawRectangle(rectStartX, rectStartY, rectWidth, rectHeight, "blue");
             }
-        };
+        }
 
-        // 鼠标滚轮缩放，基于当前鼠标位置
+        // 绘制矩形的辅助函数
+        function drawRectangle(x, y, width, height, color) {
+            ctx.beginPath();
+            ctx.rect(x, y, width, height);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // 将画布坐标转换为原始图片坐标
+        function canvasToImageCoords(canvasX, canvasY) {
+            return {
+                x: (canvasX - imgOffsetX) / imgScale,
+                y: (canvasY - imgOffsetY) / imgScale
+            };
+        }
+
+        // 保存矩形框信息
+        function saveRectangles() {
+            // 将矩形坐标转换为相对于原始图片的坐标
+            const normalizedRects = rectangles.map(rect => {
+                const startPoint = canvasToImageCoords(rect.x, rect.y);
+                const endPoint = canvasToImageCoords(rect.x + rect.width, rect.y + rect.height);
+                
+                return {
+                    x: Math.round(startPoint.x),
+                    y: Math.round(startPoint.y),
+                    width: Math.round(endPoint.x - startPoint.x),
+                    height: Math.round(endPoint.y - startPoint.y)
+                };
+            });
+            
+            // 发送数据到Streamlit
+            sendValue(normalizedRects);
+            statusText.textContent = "状态: 已保存 " + normalizedRects.length + " 个标注框";
+        }
+
+        // 事件监听器 - 鼠标滚轮缩放
         canvas.addEventListener('wheel', function(event) {
             event.preventDefault();
-
-            var imgWidth = img.width;
-            var imgHeight = img.height;
-
-            // 计算图片缩放后的新宽高
-            var newWidth = imgWidth * imgScale;
-            var newHeight = imgHeight * imgScale;
-
-            // 计算鼠标相对于当前图片的偏移量
-            var mouseXRelative = imgOffsetX - mouseX;  // 斜率
-            var mouseYRelative = imgOffsetY - mouseY;
-            console.log(mouseX, mouseY)
-            console.log(imgOffsetX, imgOffsetY)
-            // 缩放比例的变化
+            
+            // 记录鼠标位置相对于图片的偏移
+            const mouseXRelativeToImg = mouseX - imgOffsetX;
+            const mouseYRelativeToImg = mouseY - imgOffsetY;
+            
+            // 根据滚轮方向调整缩放比例
             if (event.deltaY < 0) {
-                imgScale *= 1.02;  // 放大
+                imgScale *= 1.1;  // 放大
             } else {
-                imgScale *= 0.98;  // 缩小
+                imgScale *= 0.9;  // 缩小
             }
-            // 计算新的偏移量，保持鼠标所在的相对位置
-
-            console.log(mouseYRelative/mouseXRelative * imgOffsetX - imgOffsetY)
-            // imgOffsetX = mouseX - mouseYRelative/mouseXRelative * imgScale * imgOffsetX;
-            // imgOffsetY = mouseY - mouseYRelative/mouseXRelative * imgScale * imgOffsetY;
-
-            // 重新绘制图片
-            img.onload();
+            
+            // 限制缩放范围
+            imgScale = Math.max(0.1, Math.min(imgScale, 10));
+            
+            // 调整偏移量，使鼠标指向的图片位置保持不变
+            imgOffsetX = mouseX - mouseXRelativeToImg * imgScale;
+            imgOffsetY = mouseY - mouseYRelativeToImg * imgScale;
+            
+            redrawCanvas();
         });
 
-        // 鼠标按下，开始拖拽
+        // 事件监听器 - 鼠标按下
         canvas.addEventListener('mousedown', function(event) {
+            mouseX = event.offsetX;
+            mouseY = event.offsetY;
+            
             if (drawingRect) {
-                // 记录矩形的起始位置
-                rectStartX = event.offsetX;
-                rectStartY = event.offsetY;
+                // 开始绘制矩形
+                isDrawingNow = true;
+                rectStartX = mouseX;
+                rectStartY = mouseY;
                 rectWidth = 0;
                 rectHeight = 0;
             } else {
-                moveStartX = event.offsetX - imgOffsetX;
-                moveStartY = event.offsetY - imgOffsetY;
+                // 开始拖拽图片
                 imgIsDragging = true;
+                moveStartX = mouseX - imgOffsetX;
+                moveStartY = mouseY - imgOffsetY;
+                canvas.style.cursor = 'grabbing';
             }
         });
 
-        // 鼠标移动，拖拽图片
+        // 事件监听器 - 鼠标移动
         canvas.addEventListener('mousemove', function(event) {
-            if (drawingRect) {
-                // 计算矩形的宽度和高度
-                rectWidth = event.offsetX - rectStartX;
-                rectHeight = event.offsetY - rectStartY;
-                img.onload();  // 重新绘制图片和矩形
+            mouseX = event.offsetX;
+            mouseY = event.offsetY;
+            
+            if (isDrawingNow) {
+                // 更新矩形尺寸
+                rectWidth = mouseX - rectStartX;
+                rectHeight = mouseY - rectStartY;
+                redrawCanvas();
             } else if (imgIsDragging) {
-                imgOffsetX = event.offsetX - moveStartX;
-                imgOffsetY = event.offsetY - moveStartY;
-                img.onload();  // 重新绘制图片
+                // 更新图片位置
+                imgOffsetX = mouseX - moveStartX;
+                imgOffsetY = mouseY - moveStartY;
+                redrawCanvas();
             }
-            mouseX = event.offsetX
-            mouseY = event.offsetY
         });
 
-        // 鼠标松开，结束拖拽
-        canvas.addEventListener('mouseup', function(event) {
-            if (drawingRect) {
-                // 将当前矩形添加到矩形数组中
-                rectangles.push({x: rectStartX, y: rectStartY, width: rectWidth, height: rectHeight});
-                // 重新绘制图片和矩形
-                img.onload();  
+        // 事件监听器 - 鼠标松开
+        canvas.addEventListener('mouseup', function() {
+            if (isDrawingNow) {
+                // 完成矩形绘制
+                if (Math.abs(rectWidth) > 5 && Math.abs(rectHeight) > 5) {
+                    // 确保矩形有一定大小才添加
+                    // 标准化矩形（处理负宽度/高度的情况）
+                    const normalizedRect = normalizeRectangle(rectStartX, rectStartY, rectWidth, rectHeight);
+                    rectangles.push(normalizedRect);
+                    statusText.textContent = "状态: 已添加矩形框 (" + rectangles.length + " 个标注)";
+                }
+                isDrawingNow = false;
             }
-            drawingRect = false;
+            
             imgIsDragging = false;
+            canvas.style.cursor = drawingRect ? 'crosshair' : 'grab';
+            redrawCanvas();
         });
 
-        // 鼠标离开画布，结束拖拽
+        // 标准化矩形（处理负宽度/高度的情况）
+        function normalizeRectangle(x, y, width, height) {
+            let newX = x;
+            let newY = y;
+            let newWidth = width;
+            let newHeight = height;
+            
+            if (width < 0) {
+                newX = x + width;
+                newWidth = Math.abs(width);
+            }
+            
+            if (height < 0) {
+                newY = y + height;
+                newHeight = Math.abs(height);
+            }
+            
+            return {
+                x: newX,
+                y: newY,
+                width: newWidth,
+                height: newHeight
+            };
+        }
+
+        // 事件监听器 - 鼠标离开画布
         canvas.addEventListener('mouseleave', function() {
-            if (drawingRect) {
-                img.onload();
-            }
             imgIsDragging = false;
+            if (isDrawingNow) {
+                isDrawingNow = false;
+                redrawCanvas();
+            }
         });
 
-        // 点击按钮时开始或停止绘制矩形，并切换按钮颜色
-        document.getElementById("drawRectBtn").addEventListener('click', function() {
-            drawingRect = !drawingRect;  // 切换矩形绘制状态
-
-            // 切换按钮背景颜色
+        // 事件监听器 - 绘制矩形按钮
+        drawRectBtn.addEventListener('click', function() {
+            drawingRect = !drawingRect;
+            
             if (drawingRect) {
-                this.style.backgroundColor = "red";  // 改为红色
+                this.style.backgroundColor = "red";
+                canvas.style.cursor = 'crosshair';
+                statusText.textContent = "状态: 绘制模式已开启";
             } else {
-                this.style.backgroundColor = "lightcoral";  // 改为浅红色
+                this.style.backgroundColor = "lightcoral";
+                canvas.style.cursor = 'grab';
+                statusText.textContent = "状态: 绘制模式已关闭";
             }
+        });
 
-            img.onload();  // 重新绘制图片和矩形
+        // 事件监听器 - 保存按钮
+        saveBtn.addEventListener('click', function() {
+            saveRectangles();
+        });
+
+        // 事件监听器 - 清除按钮
+        clearBtn.addEventListener('click', function() {
+            rectangles = [];
+            redrawCanvas();
+            statusText.textContent = "状态: 已清除所有标注";
+        });
+
+        // 初始化
+        window.addEventListener('load', function() {
+            canvas.style.cursor = 'grab';
         });
     </script>
     <script src="script.js"></script>

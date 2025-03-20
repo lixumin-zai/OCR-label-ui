@@ -1,14 +1,12 @@
 
-// Borrowed minimalistic Streamlit API from Thiago
-// https://discuss.streamlit.io/t/code-snippet-create-components-without-any-frontend-tooling-no-react-babel-webpack-etc/13064
+// Streamlit组件通信API
 function sendMessageToStreamlitClient(type, data) {
-    // console.log(type, data)
     const outData = Object.assign({
         isStreamlitMessage: true,
         type: type,
     }, data);
     window.parent.postMessage(outData, "*");
-  }
+}
 
 const Streamlit = {
     setComponentReady: function() {
@@ -25,29 +23,34 @@ const Streamlit = {
         addEventListener: function(type, callback) {
             window.addEventListener("message", function(event) {
                 if (event.data.type === type) {
-                    // console.log(event.data.args.data)
-                    text = event.data.args.data
                     callback(event);
                 }
             });
         }
     }
-}
+};
 
+// 发送标注数据到Streamlit·
 function sendValue(value) {
     Streamlit.setComponentValue(value);
 }
 
+// 处理Streamlit发送的渲染事件
 function onRender(event) {
     if (!window.rendered) {
-        
-        
-        window.rendered = true
+        // 从Streamlit接收图片数据
+        if (event.data.args && event.data.args.data) {
+            const imageBase64 = event.data.args.data;
+            console.log("接收到图片数据，长度:", imageBase64.length);
+            loadImageFromStreamlit(imageBase64);
+        }
+        window.rendered = true;
     }
 }
+
+// 注册渲染事件监听器
 Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
 
+// 组件初始化
 Streamlit.setComponentReady();
 Streamlit.setFrameHeight(1000);
-
-// 🐑老板请我吃烤鸡了，我要加倍努力工作
